@@ -97,7 +97,7 @@ export function useG6Graph({ container, nodes, edges, combos, onSelect }) {
     graph.render?.();
 	const first = (graph.getNodes?.() || [])[0];
 console.log("[g6] first node model:", first?.getModel?.());
-    graph.fitView?.(20);
+    //graph.fitView?.(20);
 
     // draw status rings
     for (const item of graph.getNodes?.() || []) {
