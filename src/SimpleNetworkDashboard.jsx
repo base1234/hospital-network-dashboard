@@ -15,6 +15,14 @@ import SeverityBar from "./charts/SeverityBar.jsx";
 import IncidentsLine from "./charts/IncidentsLine.jsx";
 import NonComplianceBar from "./charts/NonComplianceBar.jsx";
 import { useG6Graph } from "./topology/useG6Graph.js";
+
+import { scorePatchPriority, costOfDelay, suggestNextWindow } from "./decision/engine.js";
+import { estimatePatchDuration } from "./decision/duration.js";
+import { offlineImpact } from "./decision/simulate.js";
+import { suggestPatchPlan } from "./decision/plan.js";
+import { decide } from "./decision/decide.js";
+import { explainForHumans } from "./decision/explain.js";
+import PlainExplainer from "./ui/PlainExplainer.jsx";
  // Topology models
 import { TYPE_ICON, FALLBACK_ICON } from "./topology/icons.js";
 
@@ -145,7 +153,7 @@ const externalStubNodes = useMemo(() => {
 
 
 
-  const nodes = useMemo(() => {
+  /*const nodes = useMemo(() => {
   const all = [...assetNodes, ...externalStubNodes].map(n => {
     const url = n.img || n.style?.img || FALLBACK_ICON;
     return {
@@ -159,7 +167,9 @@ const externalStubNodes = useMemo(() => {
   const bad = all.filter(n => !n.img);
   if (bad.length) console.warn("[g6] dropping nodes missing img:", bad.map(n => n.id));
   return all;
-}, [assetNodes, externalStubNodes]);
+}, [assetNodes, externalStubNodes]);*/
+const nodes = useMemo(() => [...assetNodes, ...externalStubNodes], [assetNodes, externalStubNodes]);
+
 
 useEffect(() => {
   const imgNode = nodes.find(n => n.type === "image");
@@ -202,11 +212,56 @@ useEffect(() => {
     ],
     []
   );
+  
+  
 
   // G6 lifecycle
   const topoRef = useRef(null);
   const [selected, setSelected] = useState(null);
   useG6Graph({ container: topoRef, nodes, edges, combos, onSelect: setSelected });
+  
+  // The asset the user clicked
+const selectedAsset = useMemo(
+  () => (selected?.kind === "node" ? assets.find(a => a.id === selected.id) : null),
+  [selected, assets]
+);
+
+// Build the signals only when a node is selected
+const decisionBundle = useMemo(() => {
+  if (!selectedAsset) return null;
+
+  const ctx = {
+    nodes,    // <-- from your useMemo above
+    edges,    // <-- from your useMemo above
+    intel: {
+      // optional future feeds:
+      // kevSet: new Set(["CVE-2025-12345"]),
+      // kevDueByCve: new Map([["CVE-2025-12345", "2025-10-21T23:59:59Z"]]),
+      // epssByCve: new Map([["CVE-2025-12345", 0.81]]),
+      // businessImpactById: new Map([[selectedAsset.id, 0.9]]),
+    },
+  };
+
+  const { priority, explain } = scorePatchPriority(selectedAsset, ctx);
+  const { cod, sev, dueAt, timeLeftDays } = costOfDelay(selectedAsset, 7, ctx);
+  const windowRec = suggestNextWindow(selectedAsset, ctx);
+  const duration  = estimatePatchDuration(selectedAsset, []); // pass history array if you have it
+  const impact    = offlineImpact(nodes, edges, selectedAsset.id);
+  const plan      = suggestPatchPlan(selectedAsset, { explain, timeLeftDays }, impact);
+
+  return { priority, explain, cod7d: cod, sev, dueAt, timeLeftDays, windowRec, duration, impact, plan };
+}, [selectedAsset, nodes, edges]);
+
+const finalDecision = useMemo(
+  () => (decisionBundle ? decide(selectedAsset, decisionBundle) : null),
+  [decisionBundle, selectedAsset]
+);
+
+const story = useMemo(
+  () => (decisionBundle ? explainForHumans(selectedAsset, decisionBundle, finalDecision) : null),
+  [decisionBundle, finalDecision, selectedAsset]
+);
+
 
   return (
     <div className="h-screen w-screen overflow-auto font-sans">
@@ -295,7 +350,13 @@ useEffect(() => {
                     <div><b>Status:</b> {selected.status}</div>
                     <div><b>Patch:</b> {Math.round((selected.patch || 0) * 100)}%</div>
                     <div><b>CVSS:</b> {selected.vuln}</div>
-                  </>
+                  {/* ⬇️ Decision agent’s plain-English output */}
+					{story ? (
+					  <div style={{ marginTop: 12 }}>
+						<PlainExplainer story={story} />
+					  </div>
+					) : null}
+				  </>
                 ) : (
                   <>
                     <div className="flex items-center justify-between"><div className="font-extrabold">Link details</div>
