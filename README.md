@@ -40,7 +40,7 @@ npm -v
 3) Install dependencies
 npm ci
 # If there is no package-lock.json:
-# npm install
+npm install
 
 4) Run the app (Vite dev server)
 npm run dev -- --host 0.0.0.0 --port 5173
