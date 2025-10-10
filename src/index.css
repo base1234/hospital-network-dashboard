@@ -23,9 +23,24 @@ html {
 
 
 /* Full-bleed baseline */
+/* Full-bleed baseline */
 html, body, #root {
   height: 100%;
+  width: 100%;        /* ← add this */
   margin: 0;
+}
+
+html { font-size: 21px; }          /* 1rem = 17px */
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow: hidden;   /* ← the app controls scrolling */
+}
+
+#root {
+  overflow: auto;   /* ← avoids double scrollbars */
 }
 * { box-sizing: border-box; }
 a {
@@ -87,3 +102,4 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+

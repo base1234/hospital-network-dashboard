@@ -242,14 +242,26 @@ const decisionBundle = useMemo(() => {
     },
   };
 
-  const { priority, explain } = scorePatchPriority(selectedAsset, ctx);
+  const { priority, score, explain } = scorePatchPriority(selectedAsset, ctx);  // keep score too
   const { cod, sev, dueAt, timeLeftDays } = costOfDelay(selectedAsset, 7, ctx);
   const windowRec = suggestNextWindow(selectedAsset, ctx);
   const duration  = estimatePatchDuration(selectedAsset, []); // pass history array if you have it
   const impact    = offlineImpact(nodes, edges, selectedAsset.id);
   const plan      = suggestPatchPlan(selectedAsset, { explain, timeLeftDays }, impact);
 
-  return { priority, explain, cod7d: cod, sev, dueAt, timeLeftDays, windowRec, duration, impact, plan };
+  return {
+  priority,
+  score,            // ← add this line if you want to show score
+  explain,
+  cod7d: cod,
+  sev,
+  dueAt,
+  timeLeftDays,
+  windowRec,
+  duration,
+  impact,
+  plan,
+};
 }, [selectedAsset, nodes, edges]);
 
 const finalDecision = useMemo(
@@ -264,10 +276,11 @@ const story = useMemo(
 
 
   return (
-    <div className="h-screen w-screen overflow-auto font-sans">
-      <div className="p-4 max-w-[1440px] mx-auto">
+  <div className="min-h-screen w-screen overflow-auto font-sans">
+    <div className="p-4 h-full w-full flex flex-col gap-3">
+
         <h2 className="m-0 text-xl font-semibold">Security Ops — Hospital Topology (Icons)</h2>
-        <div className="mt-1 mb-4 text-sm text-slate-600">Patch • CVSS • SLA • MTTD/MTTR • Alerts • Segmented Topology (External ↔ DMZ ↔ Clinical/Admin)</div>
+        <div className="mt-1 mb-4 text-base text-slate-600">Patch • CVSS • SLA • MTTD/MTTR • Alerts • Segmented Topology (External ↔ DMZ ↔ Clinical/Admin)</div>
 
         {/* KPIs */}
         <div className="grid grid-cols-6 gap-3">
@@ -281,7 +294,7 @@ const story = useMemo(
 
         {/* What-if Controls */}
         <Card title="What-If Controls" className="mt-3">
-          <div className="grid grid-cols-5 gap-3 items-center text-sm">
+          <div className="grid grid-cols-5 gap-3 items-center text-base">
             <div>
               <label htmlFor="patchTarget" className="block font-semibold mb-1">Patch target ({Math.round(patchTarget * 100)}%)</label>
               <input id="patchTarget" type="range" min="0.7" max="0.98" step="0.01" value={patchTarget}
@@ -314,7 +327,7 @@ const story = useMemo(
           <Card title="Segmented Network Topology (External ↔ DMZ ↔ Clinical/Admin)">
             <div className="grid grid-cols-[3fr_1fr] gap-3">
               <div ref={topoRef} className="w-full h-[60vh] min-h-[360px] bg-white border border-slate-200 rounded-lg" />
-              <div className="h-[60vh] min-h-[360px] border border-slate-200 rounded-lg p-3 bg-slate-50 overflow-y-auto text-sm">
+              <div className="h-[60vh] min-h-[360px] border border-slate-200 rounded-lg p-3 bg-slate-50 overflow-y-auto text-base">
                 {!selected ? (
                   <>
                     <div className="font-extrabold mb-2">Legend</div>
@@ -353,7 +366,20 @@ const story = useMemo(
                   {/* ⬇️ Decision agent’s plain-English output */}
 					{story ? (
 					  <div style={{ marginTop: 12 }}>
-						<PlainExplainer story={story} />
+						<PlainExplainer
+						  story={story}
+						  details={{
+							priority:      decisionBundle?.priority,
+							score:         decisionBundle?.score,                 // safe if you added score above
+							dueAt:         decisionBundle?.dueAt,
+							timeLeftDays:  decisionBundle?.timeLeftDays,
+							window:        decisionBundle?.windowRec?.label,      // just a string for display
+							duration:      decisionBundle?.duration,
+							impact:        decisionBundle?.impact,
+							plan:          decisionBundle?.plan,
+						  }}
+						/>
+
 					  </div>
 					) : null}
 				  </>
@@ -382,7 +408,7 @@ const story = useMemo(
 
         {/* Patch priority table */}
         <Card title="Patch Priority (top 15 by CVSS then lowest patch %)" className="mt-3">
-          <table className="w-full text-sm border-collapse">
+          <table className="w-full text-base border-collapse">
             <thead>
               <tr>{["Asset", "Type", "Zone", "CVSS", "Patch %", "Status"].map((h) => (
                 <th key={h} className="text-left border-b border-slate-200 px-1.5 py-1">{h}</th>
@@ -409,10 +435,10 @@ const story = useMemo(
 
         {/* Recent alerts (windowed) */}
         <Card title={`Recent alerts (last ${alertCounts.windowMin}m)`} className="mt-3">
-          <div className="mb-2 text-sm text-slate-700">
+          <div className="mb-2 text-base text-slate-700">
             Totals — <b>Critical:</b> {alertCounts.critical} &nbsp; <b>High:</b> {alertCounts.high} &nbsp; <b>Medium:</b> {alertCounts.medium} &nbsp; <b>Low:</b> {alertCounts.low}
           </div>
-          <table className="w-full text-sm border-collapse">
+          <table className="w-full text-base border-collapse">
             <thead>
               <tr>{["Time", "Asset", "Title", "Severity"].map((h) => (
                 <th key={h} className="text-left border-b border-slate-200 px-1.5 py-1">{h}</th>
